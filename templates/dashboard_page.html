@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <style>
+      body { margin: 20px; font-family: Arial, sans-serif; }
+      a { color: #0b57d0; }
+      .links a { margin-right: 10px; }
+      .card { border: 1px solid #ddd; padding: 12px; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h2>Dashboard</h2>
+    <p><strong>User:</strong> {{ user.username }}</p>
+    <p><strong>Role:</strong> {{ role }}</p>
+    <div class="links">
+      <a href="/">Home</a>
+      <a href="/logout">Logout</a>
+    </div>
+
+    <div class="card">
+      {% if role == "student" %}
+      <p>Student actions:</p>
+      <a href="/student/book">Book hostel room</a>
+      {% elif role == "hostel_owner" %}
+      <p>Hostel owner actions:</p>
+      <a href="/owner/rooms">Post rooms</a>
+      {% else %}
+      <p>No role assigned.</p>
+      {% endif %}
+    </div>
+  </body>
+  </html>

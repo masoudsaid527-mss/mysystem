@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register</title>
+    <style>
+      body { margin: 20px; font-family: Arial, sans-serif; }
+      .wrap { max-width: 640px; }
+      .card { padding: 10px 0; }
+      .top a { margin-right: 10px; color: #0b57d0; }
+      .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+      .group { margin: 10px 0; display: grid; gap: 6px; }
+      input, select { padding: 8px; border: 1px solid #aaa; width: 100%; }
+      button { padding: 8px 12px; cursor: pointer; }
+      .error { color: #b00020; margin-top: 10px; white-space: pre-wrap; }
+      .ok { color: #0a6b2d; margin-top: 10px; }
+      @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="top">
+          <a href="/">Home</a>
+          <a href="/login">Login</a>
+          <a href="/about">About</a>
+        </div>
+        <h2>Register</h2>
+        <form id="regForm">
+          <div class="row">
+            <div class="group"><label>First Name</label><input id="first_name" type="text" /></div>
+            <div class="group"><label>Last Name</label><input id="last_name" type="text" /></div>
+          </div>
+          <div class="group"><label>Email</label><input id="email" type="email" /></div>
+          <div class="group"><label>Username</label><input id="username" type="text" /></div>
+          <div class="group">
+            <label>Role</label>
+            <select id="role">
+              <option value="">Select role</option>
+              <option value="student">Student</option>
+              <option value="hostel_owner">Hostel Owner</option>
+            </select>
+          </div>
+          <div class="group">
+            <label>Address</label>
+            <input id="address" type="text" placeholder="Required for all roles" />
+          </div>
+          <div id="student_fields">
+            <div class="row">
+              <div class="group"><label>Age</label><input id="age" type="number" min="1" /></div>
+              <div class="group"><label>Duration (months)</label><input id="duration" type="number" min="1" /></div>
+            </div>
+            <div class="group"><label>Gender</label><input id="gender" type="text" placeholder="Male/Female/Other" /></div>
+          </div>
+          <div id="owner_fields" style="display:none;">
+            <div class="row">
+              <div class="group"><label>Phone</label><input id="phone" type="text" /></div>
+              <div class="group"><label>Location</label><input id="location" type="text" /></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="group"><label>Password</label><input id="password" type="password" /></div>
+            <div class="group"><label>Confirm Password</label><input id="confirm_password" type="password" /></div>
+          </div>
+          <button type="submit">Create account</button>
+          <p id="msg"></p>
+        </form>
+      </div>
+    </div>
+    <script>
+      const form = document.getElementById("regForm");
+      const msg = document.getElementById("msg");
+      const roleInput = document.getElementById("role");
+      const studentFields = document.getElementById("student_fields");
+      const ownerFields = document.getElementById("owner_fields");
+
+      roleInput.addEventListener("change", () => {
+        if (roleInput.value === "hostel_owner") {
+          studentFields.style.display = "none";
+          ownerFields.style.display = "block";
+        } else {
+          studentFields.style.display = "block";
+          ownerFields.style.display = "none";
+        }
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.className = "";
+        msg.textContent = "";
+        const payload = {
+          first_name: document.getElementById("first_name").value.trim(),
+          last_name: document.getElementById("last_name").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          username: document.getElementById("username").value.trim(),
+          role: document.getElementById("role").value,
+          address: document.getElementById("address").value.trim(),
+          age: document.getElementById("age").value,
+          duration: document.getElementById("duration").value,
+          gender: document.getElementById("gender").value.trim(),
+          phone: document.getElementById("phone").value.trim(),
+          location: document.getElementById("location").value.trim(),
+          password: document.getElementById("password").value,
+          confirm_password: document.getElementById("confirm_password").value
+        };
+        const res = await fetch("/api/register/", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          msg.className = "error";
+          msg.textContent = data.message || "Registration failed";
+          if (data.errors) {
+            msg.textContent += "\n" + JSON.stringify(data.errors, null, 2);
+          }
+          return;
+        }
+        msg.className = "ok";
+        msg.textContent = "Registration successful";
+        setTimeout(() => window.location.href = "/login", 700);
+      });
+    </script>
+  </body>
+  </html>

@@ -7,4 +7,5 @@ admin.site.register(Administrator)
 admin.site.register(Role)
 admin.site.register(Booking)
 admin.site.register(Hostel)
+admin.site.register(Registers)
 

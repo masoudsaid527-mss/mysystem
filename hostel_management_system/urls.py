@@ -1,28 +1,24 @@
-"""
-URL configuration for hostel_management_system project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path, include
-from management.views import *
+from django.urls import include, path, re_path
+from django.views.generic import RedirectView
 from management import views
-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-   # path('', include('management.urls')),
-    # path('',views.home),
-    path('api/', include('management.urls'))
+
+    path('', RedirectView.as_view(url='/app/', permanent=False)),
+    path('app', views.react_app),
+    re_path(r'^app/.*$', views.react_app),
+
+    path('home', RedirectView.as_view(url='/app/', permanent=False)),
+    path('login', RedirectView.as_view(url='/app/login', permanent=False)),
+    path('register', RedirectView.as_view(url='/app/register', permanent=False)),
+    path('about', RedirectView.as_view(url='/app/about', permanent=False)),
+
+    path('dashboard', views.dashboard_page),
+    path('logout', views.logout_page),
+    path('student/book', views.student_booking_page),
+    path('owner/rooms', views.owner_rooms_page),
+
+    path('api/', include('management.urls')),
 ]

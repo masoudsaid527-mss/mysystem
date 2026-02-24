@@ -1,6 +1,7 @@
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -66,6 +67,23 @@ class Booking(models.Model):
     room = models.ForeignKey(Hostel, on_delete = models.CASCADE)
     name = models.ForeignKey(Student, on_delete = models.CASCADE)
     booking_date = models.DateField(auto_now_add = True)
+
+    def clean(self):
+        # One student can only have one active booking.
+        existing_for_student = Booking.objects.filter(name=self.name)
+        # One room can only be booked by one student.
+        existing_for_room = Booking.objects.filter(room=self.room)
+        if self.pk:
+            existing_for_student = existing_for_student.exclude(pk=self.pk)
+            existing_for_room = existing_for_room.exclude(pk=self.pk)
+        if existing_for_student.exists():
+            raise ValidationError("A student can only make one booking.")
+        if existing_for_room.exists():
+            raise ValidationError("This room is already booked.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f" The rooom is ready booked by a student"

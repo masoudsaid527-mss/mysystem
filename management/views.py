@@ -1,9 +1,14 @@
-from django.shortcuts import render
+import logging
+
+from django.shortcuts import redirect, render
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db import DataError, transaction
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import DataError, IntegrityError, transaction
+from django.db.models import Exists, OuterRef
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -19,20 +24,46 @@ from .serializer import (
     StudentSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
+
+def _normalized_role(value):
+    role = str(value or "").strip().lower()
+    if role in {"hostel owner", "owner"}:
+        return "hostel_owner"
+    if role in {"student"}:
+        return "student"
+    return role
+
+
+def _effective_role_for_user(user):
+    register = Registers.objects.filter(user=user).first()
+    role = _normalized_role(register.role if register else "")
+    if role in {"student", "hostel_owner"}:
+        return role
+    if Hostel_owner.objects.filter(user=user).exists():
+        return "hostel_owner"
+    if Student.objects.filter(user=user).exists():
+        return "student"
+    return ""
+
 
 def home(request):
-    return render(request, "home_from_react.html")
+    return redirect("http://localhost:5175/")
 
 
 @ensure_csrf_cookie
 def react_app(request):
-    return render(request, "react_app.html")
+    return redirect("http://localhost:5175/")
 
 
 @api_view(["GET"])
 @ensure_csrf_cookie
 def csrf_token(request):
-    return Response({"message": "CSRF cookie set"}, status=status.HTTP_200_OK)
+    return Response(
+        {"message": "CSRF cookie set", "backend": "management", "register_patch": "2026-02-23"},
+        status=status.HTTP_200_OK,
+    )
 
 
 def login_page(request):
@@ -49,15 +80,14 @@ def about_page(request):
 
 @login_required(login_url="/login")
 def dashboard_page(request):
-    register = Registers.objects.filter(user=request.user).first()
-    role = register.role if register else ""
+    role = _effective_role_for_user(request.user)
     return render(request, "dashboard_page.html", {"role": role, "user": request.user})
 
 
 @login_required(login_url="/login")
 def logout_page(request):
     logout(request)
-    return render(request, "home_from_react.html")
+    return redirect("http://localhost:5175/")
 
 
 @login_required(login_url="/login")
@@ -75,7 +105,14 @@ def student_booking_page(request):
         if hostel_id:
             hostel = Hostel.objects.filter(id=hostel_id).first()
             if hostel:
-                Booking.objects.create(room=hostel, name=student)
+                try:
+                    Booking.objects.create(room=hostel, name=student)
+                except ValidationError:
+                    return render(
+                        request,
+                        "message_page.html",
+                        {"message": "Booking failed: one student can only book one available room."},
+                    )
 
     hostels = Hostel.objects.select_related("hostel_owner").all().order_by("id")
     bookings = Booking.objects.filter(name=student).select_related("room").order_by("-id")
@@ -170,8 +207,7 @@ def current_user(request):
     if not request.user.is_authenticated:
         return Response({"message": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    register = Registers.objects.filter(user=request.user).first()
-    role = register.role if register else ""
+    role = _effective_role_for_user(request.user)
     return Response(
         {
             "user_id": request.user.id,
@@ -185,6 +221,7 @@ def current_user(request):
     )
 
 
+@csrf_exempt
 @api_view(["POST"])
 def logout_user(request):
     if not request.user.is_authenticated:
@@ -199,8 +236,8 @@ def student_bookings_api(request):
     if not request.user.is_authenticated:
         return Response({"message": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    register = Registers.objects.filter(user=request.user, role="student").first()
-    if not register:
+    role = _effective_role_for_user(request.user)
+    if role != "student":
         return Response({"message": "Only students can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
     student = Student.objects.filter(user=request.user).first()
@@ -208,8 +245,19 @@ def student_bookings_api(request):
         return Response({"message": "Student profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        hostels = Hostel.objects.select_related("hostel_owner").all().order_by("id")
+        booked_rooms = Booking.objects.filter(room=OuterRef("pk"))
+        # Show only available rooms to students: once booked, room disappears from options.
         bookings = Booking.objects.filter(name=student).select_related("room").order_by("-id")
+        if bookings.exists():
+            # Student is allowed only one booking at a time.
+            hostels = Hostel.objects.none()
+        else:
+            hostels = (
+                Hostel.objects.select_related("hostel_owner")
+                .annotate(is_booked=Exists(booked_rooms))
+                .filter(is_booked=False)
+                .order_by("id")
+            )
 
         hostels_payload = [
             {
@@ -243,6 +291,14 @@ def student_bookings_api(request):
     if not hostel_id:
         return Response({"message": "hostel_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    if Booking.objects.filter(name=student).exists():
+        return Response({"message": "You already have a booking"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        hostel_id = int(hostel_id)
+    except (TypeError, ValueError):
+        return Response({"message": "hostel_id must be a valid number"}, status=status.HTTP_400_BAD_REQUEST)
+
     hostel = Hostel.objects.filter(id=hostel_id).first()
     if not hostel:
         return Response({"message": "Hostel not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -250,7 +306,14 @@ def student_bookings_api(request):
     if Booking.objects.filter(room=hostel, name=student).exists():
         return Response({"message": "You already booked this room"}, status=status.HTTP_400_BAD_REQUEST)
 
-    booking = Booking.objects.create(room=hostel, name=student)
+    # One room can only be occupied by one student at a time.
+    if Booking.objects.filter(room=hostel).exists():
+        return Response({"message": "This room is already booked"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        booking = Booking.objects.create(room=hostel, name=student)
+    except ValidationError as exc:
+        return Response({"message": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(
         {
             "message": "Booking created successfully",
@@ -270,8 +333,8 @@ def owner_rooms_api(request):
     if not request.user.is_authenticated:
         return Response({"message": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    register = Registers.objects.filter(user=request.user, role="hostel_owner").first()
-    if not register:
+    role = _effective_role_for_user(request.user)
+    if role != "hostel_owner":
         return Response({"message": "Only hostel owners can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
     owner = Hostel_owner.objects.filter(user=request.user).first()
@@ -303,6 +366,8 @@ def owner_rooms_api(request):
     room_name = str(request.data.get("room_name", "")).strip()
     if not room_name:
         return Response({"message": "room_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(room_name) > 200:
+        return Response({"message": "room_name must be 200 characters or fewer"}, status=status.HTTP_400_BAD_REQUEST)
 
     room = Hostel.objects.create(name=room_name, hostel_owner=owner)
     return Response(
@@ -314,48 +379,79 @@ def owner_rooms_api(request):
     )
 
 
+@csrf_exempt
 @api_view(["POST"])
 def register_user(request):
-    data = request.data
-
-    first_name = str(data.get("first_name", "")).strip()
-    last_name = str(data.get("last_name", "")).strip()
-    email = str(data.get("email", "")).strip()
-    username = str(data.get("username", "")).strip()
-    role = str(data.get("role", "")).strip()
-    password = str(data.get("password", ""))
-    confirm_password = str(data.get("confirm_password", ""))
-
-    errors = {}
-
-    if not first_name:
-        errors["firstName"] = "First name is required"
-    if not last_name:
-        errors["lastName"] = "Last name is required"
-    if not email:
-        errors["email"] = "Email is required"
-    if not username:
-        errors["username"] = "Username is required"
-    if not role:
-        errors["role"] = "Please select a role"
-    elif role not in ["student", "hostel_owner"]:
-        errors["role"] = "Role must be student or hostel_owner"
-    if not password:
-        errors["password"] = "Password is required"
-    if password != confirm_password:
-        errors["confirmPassword"] = "Passwords do not match"
-    if User.objects.filter(username=username).exists():
-        errors["username"] = "Username already exists"
-    if User.objects.filter(email=email).exists():
-        errors["email"] = "Email already registered"
-
-    if errors:
-        return Response(
-            {"message": "Validation failed", "errors": errors},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     try:
+        data = request.data
+        if not hasattr(data, "get"):
+            return Response(
+                {"message": "Validation failed", "errors": {"request": "Invalid payload format"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        first_name = str(data.get("first_name", "")).strip()
+        last_name = str(data.get("last_name", "")).strip()
+        email = str(data.get("email", "")).strip()
+        username = str(data.get("username", "")).strip()
+        role = str(data.get("role", "")).strip()
+        password = str(data.get("password", ""))
+        confirm_password = str(data.get("confirm_password", ""))
+        full_name = f"{first_name} {last_name}".strip()
+
+        errors = {}
+
+        if not first_name:
+            errors["firstName"] = "First name is required"
+        if not last_name:
+            errors["lastName"] = "Last name is required"
+        if not email:
+            errors["email"] = "Email is required"
+        else:
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors["email"] = "Invalid email address"
+        if not username:
+            errors["username"] = "Username is required"
+        if not role:
+            errors["role"] = "Please select a role"
+        elif role not in ["student", "hostel_owner"]:
+            errors["role"] = "Role must be student or hostel_owner"
+        if not password:
+            errors["password"] = "Password is required"
+        if password != confirm_password:
+            errors["confirmPassword"] = "Passwords do not match"
+        if User.objects.filter(username=username).exists():
+            errors["username"] = "Username already exists"
+        if User.objects.filter(email=email).exists():
+            errors["email"] = "Email already registered"
+
+        if role == "student":
+            if len(full_name) > 30:
+                errors["firstName"] = "First and last name are too long for a student profile"
+            gender = str(data.get("gender", "Not set")).strip() or "Not set"
+            if len(gender) > 10:
+                errors["gender"] = "Gender must be 10 characters or fewer"
+            try:
+                age = int(data.get("age", 18) or 18)
+                if age < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors["age"] = "Age must be a positive number"
+            try:
+                duration = int(data.get("duration", 1) or 1)
+                if duration < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors["duration"] = "Duration must be a positive number"
+
+        if errors:
+            return Response(
+                {"message": "Validation failed", "errors": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         with transaction.atomic():
             user = User.objects.create_user(
                 username=username,
@@ -376,7 +472,7 @@ def register_user(request):
             if role == "student":
                 Student.objects.create(
                     user=user,
-                    name=f"{first_name} {last_name}".strip(),
+                    name=full_name,
                     age=int(data.get("age", 18) or 18),
                     address=str(data.get("address", "Not provided")).strip() or "Not provided",
                     duration=int(data.get("duration", 1) or 1),
@@ -391,9 +487,15 @@ def register_user(request):
                     phone=str(data.get("phone", "Not provided")).strip() or "Not provided",
                     location=str(data.get("location", "Not provided")).strip() or "Not provided",
                 )
-    except (ValueError, DataError):
+    except (ValueError, DataError, IntegrityError):
         return Response(
             {"message": "Invalid registration details"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as exc:
+        logger.exception("Unexpected registration failure")
+        return Response(
+            {"message": f"Registration failed: {str(exc)}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -408,6 +510,7 @@ def register_user(request):
     )
 
 
+@csrf_exempt
 @api_view(["POST"])
 def login_user(request):
     data = request.data
@@ -434,8 +537,7 @@ def login_user(request):
         )
 
     login(request, user)
-    register = Registers.objects.filter(user=user).first()
-    role = register.role if register else ""
+    role = _effective_role_for_user(user)
     return Response(
         {
             "message": "Login successful",

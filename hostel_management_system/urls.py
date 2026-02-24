@@ -6,14 +6,14 @@ from management import views
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('', RedirectView.as_view(url='/app/', permanent=False)),
-    path('app', views.react_app),
-    re_path(r'^app/.*$', views.react_app),
+    path('', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
+    path('app', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
+    re_path(r'^app/.*$', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
 
-    path('home', RedirectView.as_view(url='/app/', permanent=False)),
-    path('login', RedirectView.as_view(url='/app/login', permanent=False)),
-    path('register', RedirectView.as_view(url='/app/register', permanent=False)),
-    path('about', RedirectView.as_view(url='/app/about', permanent=False)),
+    path('home', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
+    path('login', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
+    path('register', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
+    path('about', RedirectView.as_view(url='http://localhost:5175/', permanent=False)),
 
     path('dashboard', views.dashboard_page),
     path('logout', views.logout_page),

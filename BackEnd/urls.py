@@ -5,7 +5,7 @@ from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from BackEnd.management import views
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5175").rstrip("/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 urlpatterns = [
     path('admin/', admin.site.urls),

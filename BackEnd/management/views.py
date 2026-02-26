@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.shortcuts import redirect, render
 from django.contrib.auth import authenticate, login, logout
@@ -25,6 +26,7 @@ from .serializer import (
 )
 
 logger = logging.getLogger(__name__)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 
 def _normalized_role(value):
@@ -49,12 +51,12 @@ def _effective_role_for_user(user):
 
 
 def home(request):
-    return redirect("http://localhost:5175/")
+    return redirect(f"{FRONTEND_URL}/")
 
 
 @ensure_csrf_cookie
 def react_app(request):
-    return redirect("http://localhost:5175/")
+    return redirect(f"{FRONTEND_URL}/")
 
 
 @api_view(["GET"])
@@ -87,7 +89,7 @@ def dashboard_page(request):
 @login_required(login_url="/login")
 def logout_page(request):
     logout(request)
-    return redirect("http://localhost:5175/")
+    return redirect(f"{FRONTEND_URL}/")
 
 
 @login_required(login_url="/login")

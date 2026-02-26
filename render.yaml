@@ -42,7 +42,7 @@ services:
         value: "True"
   - type: static_site
     name: hostel-frontend
-    rootDir: FontEnd/hostel
+    rootDir: FontEnd
     buildCommand: npm ci && npm run build:static
     staticPublishPath: dist
     envVars:
@@ -54,3 +54,4 @@ services:
 databases:
   - name: hostel-db
     plan: free
+

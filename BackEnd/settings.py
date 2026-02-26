@@ -12,12 +12,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Local development defaults
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-dev-only-change-me')
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').strip().lower() in {'1', 'true', 'yes', 'on'}
+SECRET_KEY = 'django-insecure-^j!il64pw7(^o(e4b86y8z)mtn8j3skc3a%-er%*#(7t#3n&%_'
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
 
-allowed_hosts_env = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,testserver')
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
-
+ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -29,6 +28,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'BackEnd.management',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -70,6 +70,9 @@ DATABASES = {
         'PORT': '5432',
     }
 }
+
+
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -92,38 +95,68 @@ USE_I18N = True
 USE_TZ = True
 
 
+# STATIC_URL = 'static/'
+# STATIC_DIR = BASE_DIR / 'static'
+# STATICFILES_DIRS = [STATIC_DIR] if STATIC_DIR.exists() else []
+# STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+# CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').strip().lower() in {'1', 'true', 'yes', 'on'}
+# LOCAL_ORIGINS = [
+#     'http://localhost:5173',
+#     'http://127.0.0.1:5173',
+#     'http://localhost:5175',
+#     'http://127.0.0.1:5175',
+#     'http://localhost:8000',
+#     'http://127.0.0.1:8000',
+# ]
+# _origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+# CORS_ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(',') if o.strip()] if _origins_env else LOCAL_ORIGINS
+# CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+# CORS_ALLOW_CREDENTIALS = True
+
+# SESSION_COOKIE_SECURE = False if DEBUG else True
+# CSRF_COOKIE_SECURE = False if DEBUG else True
+# SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+# CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+# SECURE_SSL_REDIRECT = False if DEBUG else True
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+# LOGIN_URL = 'login'
+# LOGIN_REDIRECT_URL = 'home'
+# LOGOUT_REDIRECT_URL = 'login'
+
+
+# DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
 STATIC_URL = 'static/'
-STATIC_DIR = BASE_DIR / 'static'
-STATICFILES_DIRS = [STATIC_DIR] if STATIC_DIR.exists() else []
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-
-CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').strip().lower() in {'1', 'true', 'yes', 'on'}
-LOCAL_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5175',
-    'http://127.0.0.1:5175',
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-]
-_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(',') if o.strip()] if _origins_env else LOCAL_ORIGINS
-CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
-CORS_ALLOW_CREDENTIALS = True
-
-SESSION_COOKIE_SECURE = False if DEBUG else True
-CSRF_COOKIE_SECURE = False if DEBUG else True
-SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
-CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
-SECURE_SSL_REDIRECT = False if DEBUG else True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'home'
-LOGOUT_REDIRECT_URL = 'login'
-
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+CORS_ALLOW_ALL_ORIGINS = True  # for testing with Postman
+
+STATIC_ROOT = BASE_DIR/'staticfiles'
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "My Project API",
+    "DESCRIPTION": "API for My Project",
+    "VERSION": "1.0.0",
+    # "SERVE_INCLUDE_SCHEMA": False,   # tweak options here
+}

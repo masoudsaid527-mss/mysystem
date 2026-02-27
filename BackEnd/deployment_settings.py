@@ -47,7 +47,7 @@ DATABASES = {
 # # CORS for React frontend (update to your actual frontend URL)
 CORS_ALLOWED_ORIGINS = [
     "https://my-project-1-re1u.onrender.com",  # ✅ Replace with your frontend URL
-    "http://localhost:3000",  # optional for local dev
+    #"http://localhost:3000",  # optional for local dev
  ]
 
 

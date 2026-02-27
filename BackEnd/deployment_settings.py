@@ -1,13 +1,16 @@
 import os
-from .settings import *
 import dj_database_url
+from .settings import *
 from .settings import BASE_DIR
 
 # Set debug to False in production
 DEBUG = False
+
 # Set ALLOWED_HOSTS to your domain
 # Use Render-provided hostname or default to localhost
-ALLOWED_HOSTS = [os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')]
+ALLOWED_HOSTS = [
+    os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')
+]
 
 # Recommended for CSRF protection (e.g. for forms)
 CSRF_TRUSTED_ORIGINS = [
@@ -40,22 +43,21 @@ DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL'),
         conn_max_age=600,
-        # ssl_require=True  # important for Render PostgreSQL
+        # ssl_require=True # important for Render PostgreSQL
     )
 }
 
-# # CORS for React frontend (update to your actual frontend URL)
+# CORS for React frontend (update to your actual frontend URL)
 CORS_ALLOWED_ORIGINS = [
-    "https:my-project-1-re1u.onrender.com",  # ✅ Replace with your frontend URL
-    #"http://localhost:3000",  # optional for local dev
- ]
-
+    "https://my-project-1-re1u.onrender.com",  # ✅ Replace with your frontend URL
+    # "http://localhost:3000", # optional for local dev
+]
 
 STORAGES = {
     "default": {
-        "BACKEND" : "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", 
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     }
 }
